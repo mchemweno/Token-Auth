@@ -49,19 +49,21 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
 
     def validate(self, attrs, *args, **kwargs):
         email = attrs.get('email', '')
-        if User.objects.filter(email=email).exists():
-            user = User.objects.get(email=email)
-            request = self.context.get('request')
-            uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
-            token = PasswordResetTokenGenerator().make_token(user)
-            current_site = request.get_host()
-            relative_link = reverse('password-reset-token-validate', kwargs={'uidb64': uidb64, 'token': token})
-            protocol = 'https://' if request.is_secure() else 'http://'
-            web_url = protocol + current_site + relative_link
-            subject = f'Password Reset.'
-            message = f' Follow the below link to reset your account {web_url}'
-            send_mail(subject, message, os.environ.get('EMAIL'), [user.email])
+        if not User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({'Email': 'User with this email does not exist.'})
+        user = User.objects.get(email=email)
+        request = self.context.get('request')
+        uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
+        token = PasswordResetTokenGenerator().make_token(user)
+        current_site = request.get_host()
+        relative_link = reverse('password-reset-token-validate', kwargs={'uidb64': uidb64, 'token': token})
+        protocol = 'https://' if request.is_secure() else 'http://'
+        web_url = protocol + current_site + relative_link
+        subject = f'Password Reset.'
+        message = f' Follow the below link to reset your account {web_url}'
+        send_mail(subject, message, os.environ.get('EMAIL'), [user.email])
         return super().validate(attrs)
+
 
 
 class SetNewPasswordSerializer(serializers.Serializer):

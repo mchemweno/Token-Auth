@@ -1,5 +1,6 @@
 import os
 
+from django.shortcuts import render
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import generics
@@ -104,27 +105,30 @@ def request_reset_password(request, *args, **kwargs):
     return Response({'success': 'Success'}, status=200)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def password_token_check(request, uidb64, token):
-    try:
-        id= smart_str(urlsafe_base64_decode(uidb64))
-        user= User.objects.get(id=id)
+    if request.method == 'GET':
+        try:
+            id = smart_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=id)
 
-
-        if not PasswordResetTokenGenerator().check_token(user, token):
-            return Response({'error': 'Token is not valid please request a new one.'}, status=400)
-        return Response({'success':True, 'message': 'Credentials are valid', 'uidb64':uidb64, 'token': token})
-    except DjangoUnicodeDecodeError as identifier:
-        if not PasswordResetTokenGenerator().check_token(user, token):
-            return Response({'error': 'Token is not valid please request a new one.'}, status=400)
-
-
-
-@api_view(['PATCH'])
-def set_new_password(request):
-    data = request.data
-    serializer = SetNewPasswordSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    return Response({'success': True, 'message': 'Password reset success'}, status=200)
-
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return render(request, 'Token_Auth/invalid_token.html')
+            return render(request, 'Token_Auth/password_reset_form.html', {
+                'uidb64': uidb64,
+                'token': token
+            })
+        except DjangoUnicodeDecodeError as identifier:
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return render(request, 'Token_Auth/invalid_token.html')
+    else:
+        try:
+            data = request.data
+            serializer = SetNewPasswordSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            return render(request, 'Token_Auth/password_reset_successful.html')
+        except Exception as e:
+            return render(request, 'Token_Auth/password_reset_unsuccessful.html', {
+                'error': e
+            })
 
